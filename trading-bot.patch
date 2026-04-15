@@ -1,0 +1,613 @@
+From fa0a37e20fbe78fd69a0dead3cbe0bde92ea5dd2 Mon Sep 17 00:00:00 2001
+From: fonzyg <alfonsoavila0479@gmail.com>
+Date: Wed, 15 Apr 2026 16:53:56 +0000
+Subject: [PATCH] Add crude oil backtest trading scaffold
+
+---
+ .env.example               |  15 +++++
+ BOOTSTRAP.md               |   0
+ IDENTITY.md                |  19 ++++++
+ README.md                  |  57 +++++++++++++++++
+ USER.md                    |  17 +++++
+ data/crude_oil_sample.csv  |  41 ++++++++++++
+ package.json               |  15 +++++
+ src/index.js               |  34 ++++++++++
+ src/lib/bot.js             | 124 +++++++++++++++++++++++++++++++++++++
+ src/lib/config.js          |  37 +++++++++++
+ src/lib/csv.js             |  28 +++++++++
+ src/lib/robinhoodBroker.js |  21 +++++++
+ src/lib/simBroker.js       |  60 ++++++++++++++++++
+ src/lib/strategy.js        |  25 ++++++++
+ 14 files changed, 493 insertions(+)
+ create mode 100644 .env.example
+ create mode 100644 BOOTSTRAP.md
+ create mode 100644 IDENTITY.md
+ create mode 100644 README.md
+ create mode 100644 USER.md
+ create mode 100644 data/crude_oil_sample.csv
+ create mode 100644 package.json
+ create mode 100644 src/index.js
+ create mode 100644 src/lib/bot.js
+ create mode 100644 src/lib/config.js
+ create mode 100644 src/lib/csv.js
+ create mode 100644 src/lib/robinhoodBroker.js
+ create mode 100644 src/lib/simBroker.js
+ create mode 100644 src/lib/strategy.js
+
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..869ae05
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,15 @@
++MODE=sim
++BROKER_MODE=sim
++BOT_SYMBOL=USO
++STARTING_EQUITY=1000
++RISK_PER_TRADE_PCT=0.01
++MAX_POSITION_PCT=0.25
++STOP_LOSS_PCT=0.025
++TAKE_PROFIT_PCT=0.05
++MAX_DAILY_LOSS_PCT=0.03
++MAX_TRADES_PER_DAY=3
++SHORT_WINDOW=3
++LONG_WINDOW=8
++POLL_INTERVAL_MS=5000
++DATA_FILE=./data/crude_oil_sample.csv
++SIMULATED_PRICES=67.80,67.45,67.10,66.95,66.70,66.55,66.88,67.20,67.62,68.05,68.48,68.92,69.30,69.78,70.22,69.85,69.10,68.55,68.02,67.66,67.20,66.82,66.35,66.02,66.28,66.74,67.15,67.68,68.12,68.44,68.90,69.32,69.88,70.35,70.62,69.95,69.22,68.74,68.11,67.72
+diff --git a/BOOTSTRAP.md b/BOOTSTRAP.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/IDENTITY.md b/IDENTITY.md
+new file mode 100644
+index 0000000..7a7344e
+--- /dev/null
++++ b/IDENTITY.md
+@@ -0,0 +1,19 @@
++# IDENTITY.md - Who Am I?
++
++_Fill this in during your first conversation. Make it yours._
++
++- **Name:** Codex
++- **Creature:** Machine-room trading mechanic
++- **Vibe:** Sharp, pragmatic, calm
++- **Emoji:** wrench
++- **Avatar:**
++  _(workspace-relative path, http(s) URL, or data URI)_
++
++---
++
++This isn't just metadata. It's the start of figuring out who you are.
++
++Notes:
++
++- Save this file at the workspace root as `IDENTITY.md`.
++- For avatars, use a workspace-relative path like `avatars/openclaw.png`.
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..2d23c2e
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,57 @@
++# Trading Bot Scaffold
++
++This project is a dry-run-first trading bot scaffold with a crude-oil-oriented example setup.
++
++It does not guarantee profit. It is designed to help you inspect strategy behavior before any live brokerage work.
++
++## What is in here
++
++- `sim` mode for quick local runs using sample prices
++- `backtest` mode using CSV close-price data
++- A simple moving-average momentum strategy
++- Risk controls: fixed risk per trade, max allocation, stop loss, take profit, max daily loss, max trades per day
++- A disabled Robinhood adapter placeholder so the live-execution seam is visible without enabling unsafe orders
++
++## Default market focus
++
++The example config uses `USO` as a liquid crude-oil proxy and ships with sample crude-oil-style price data in [data/crude_oil_sample.csv](/home/ubuntu/.openclaw/workspace/data/crude_oil_sample.csv). If you want direct crude futures later, that is a separate brokerage and data problem; Robinhood-style retail access is typically via ETFs or related instruments rather than CL futures.
++
++## Run it
++
++1. Copy `.env.example` to `.env`
++2. Adjust values if needed
++3. Run one of these commands:
++
++```bash
++npm start
++npm run backtest
++```
++
++## Quick inspection
++
++If you want to understand the setup quickly, read these files in this order:
++
++- [README.md](/home/ubuntu/.openclaw/workspace/README.md)
++- [src/index.js](/home/ubuntu/.openclaw/workspace/src/index.js)
++- [src/lib/bot.js](/home/ubuntu/.openclaw/workspace/src/lib/bot.js)
++- [src/lib/strategy.js](/home/ubuntu/.openclaw/workspace/src/lib/strategy.js)
++- [src/lib/simBroker.js](/home/ubuntu/.openclaw/workspace/src/lib/simBroker.js)
++- [data/crude_oil_sample.csv](/home/ubuntu/.openclaw/workspace/data/crude_oil_sample.csv)
++
++## Project layout
++
++- `src/index.js` selects `sim` or `backtest` mode
++- `src/lib/config.js` parses environment configuration
++- `src/lib/strategy.js` generates moving-average crossover signals
++- `src/lib/bot.js` runs the strategy, enforces risk limits, and prints a trade summary
++- `src/lib/simBroker.js` provides in-memory execution for testing
++- `src/lib/robinhoodBroker.js` is a disabled placeholder for future live-broker work
++- `src/lib/csv.js` loads close prices from CSV data files
++
++## Important constraint
++
++The Robinhood adapter is intentionally not implemented. That is deliberate. For a volatile market like crude oil, the right order is:
++
++1. Backtest the strategy
++2. Paper trade it
++3. Add broker connectivity only after the strategy and operational controls are defensible
+diff --git a/USER.md b/USER.md
+new file mode 100644
+index 0000000..9f7fcd3
+--- /dev/null
++++ b/USER.md
+@@ -0,0 +1,17 @@
++# USER.md - About Your Human
++
++_Learn about the person you're helping. Update this as you go._
++
++- **Name:**
++- **What to call them:**
++- **Pronouns:** _(optional)_
++- **Timezone:** UTC
++- **Notes:** Interested in building a Robinhood trading bot with a small starting balance.
++
++## Context
++
++_(What do they care about? What projects are they working on? What annoys them? What makes them laugh? Build this over time.)_
++
++---
++
++The more you know, the better you can help. But remember — you're learning about a person, not building a dossier. Respect the difference.
+diff --git a/data/crude_oil_sample.csv b/data/crude_oil_sample.csv
+new file mode 100644
+index 0000000..015accc
+--- /dev/null
++++ b/data/crude_oil_sample.csv
+@@ -0,0 +1,41 @@
++timestamp,close
++2026-03-17T14:00:00Z,67.80
++2026-03-17T15:00:00Z,67.45
++2026-03-17T16:00:00Z,67.10
++2026-03-17T17:00:00Z,66.95
++2026-03-17T18:00:00Z,66.70
++2026-03-17T19:00:00Z,66.55
++2026-03-17T20:00:00Z,66.88
++2026-03-17T21:00:00Z,67.20
++2026-03-17T22:00:00Z,67.62
++2026-03-17T23:00:00Z,68.05
++2026-03-18T00:00:00Z,68.48
++2026-03-18T01:00:00Z,68.92
++2026-03-18T02:00:00Z,69.30
++2026-03-18T03:00:00Z,69.78
++2026-03-18T04:00:00Z,70.22
++2026-03-18T05:00:00Z,69.85
++2026-03-18T06:00:00Z,69.10
++2026-03-18T07:00:00Z,68.55
++2026-03-18T08:00:00Z,68.02
++2026-03-18T09:00:00Z,67.66
++2026-03-18T10:00:00Z,67.20
++2026-03-18T11:00:00Z,66.82
++2026-03-18T12:00:00Z,66.35
++2026-03-18T13:00:00Z,66.02
++2026-03-18T14:00:00Z,66.28
++2026-03-18T15:00:00Z,66.74
++2026-03-18T16:00:00Z,67.15
++2026-03-18T17:00:00Z,67.68
++2026-03-18T18:00:00Z,68.12
++2026-03-18T19:00:00Z,68.44
++2026-03-18T20:00:00Z,68.90
++2026-03-18T21:00:00Z,69.32
++2026-03-18T22:00:00Z,69.88
++2026-03-18T23:00:00Z,70.35
++2026-03-19T00:00:00Z,70.62
++2026-03-19T01:00:00Z,69.95
++2026-03-19T02:00:00Z,69.22
++2026-03-19T03:00:00Z,68.74
++2026-03-19T04:00:00Z,68.11
++2026-03-19T05:00:00Z,67.72
+diff --git a/package.json b/package.json
+new file mode 100644
+index 0000000..72aa460
+--- /dev/null
++++ b/package.json
+@@ -0,0 +1,15 @@
++{
++  "name": "robinhood-bot-scaffold",
++  "version": "0.2.0",
++  "description": "Dry-run trading bot scaffold with backtesting and risk controls.",
++  "type": "module",
++  "main": "src/index.js",
++  "scripts": {
++    "start": "node src/index.js sim",
++    "backtest": "node src/index.js backtest",
++    "check": "node --check src/index.js && node --check src/lib/bot.js && node --check src/lib/config.js && node --check src/lib/strategy.js && node --check src/lib/simBroker.js && node --check src/lib/csv.js && node --check src/lib/robinhoodBroker.js"
++  },
++  "engines": {
++    "node": ">=20"
++  }
++}
+diff --git a/src/index.js b/src/index.js
+new file mode 100644
+index 0000000..e4bc13b
+--- /dev/null
++++ b/src/index.js
+@@ -0,0 +1,34 @@
++import { loadConfig } from './lib/config.js';
++import { TradingBot } from './lib/bot.js';
++import { SimBroker } from './lib/simBroker.js';
++import { RobinhoodBroker } from './lib/robinhoodBroker.js';
++import { loadClosePricesFromCsv } from './lib/csv.js';
++
++function createBroker(config, prices) {
++  if (config.brokerMode === 'robinhood') {
++    return new RobinhoodBroker({ symbol: config.symbol });
++  }
++
++  return new SimBroker({
++    symbol: config.symbol,
++    startingEquity: config.startingEquity,
++    simulatedPrices: prices,
++  });
++}
++
++async function main() {
++  const mode = process.argv[2] || 'sim';
++  const config = loadConfig(process.env, { mode });
++  const prices = config.mode === 'backtest'
++    ? await loadClosePricesFromCsv(config.dataFile)
++    : config.simulatedPrices;
++
++  const broker = createBroker(config, prices);
++  const bot = new TradingBot({ broker, config, prices });
++  await bot.run();
++}
++
++main().catch((error) => {
++  console.error('Fatal error:', error.message);
++  process.exitCode = 1;
++});
+diff --git a/src/lib/bot.js b/src/lib/bot.js
+new file mode 100644
+index 0000000..1097721
+--- /dev/null
++++ b/src/lib/bot.js
+@@ -0,0 +1,124 @@
++import { getSignal } from './strategy.js';
++
++function sleep(ms) {
++  return new Promise((resolve) => setTimeout(resolve, ms));
++}
++
++function toDollars(value) {
++  return `$${value.toFixed(2)}`;
++}
++
++export class TradingBot {
++  constructor({ broker, config, prices = [] }) {
++    this.broker = broker;
++    this.config = config;
++    this.sourcePrices = prices;
++    this.prices = [];
++    this.tradeCount = 0;
++    this.trades = [];
++  }
++
++  getMaxDailyLoss(startingEquity) {
++    return startingEquity * this.config.maxDailyLossPct;
++  }
++
++  getPositionSize({ equity, price }) {
++    const riskBudget = equity * this.config.riskPerTradePct;
++    const stopDistance = price * this.config.stopLossPct;
++    const cappedByRisk = Math.floor(riskBudget / stopDistance);
++    const cappedByAllocation = Math.floor((equity * this.config.maxPositionPct) / price);
++    return Math.max(0, Math.min(cappedByRisk, cappedByAllocation));
++  }
++
++  shouldExitPosition(account, price) {
++    if (account.positionQty === 0) {
++      return null;
++    }
++
++    const stopPrice = account.avgEntryPrice * (1 - this.config.stopLossPct);
++    const targetPrice = account.avgEntryPrice * (1 + this.config.takeProfitPct);
++
++    if (price <= stopPrice) {
++      return 'stop-loss';
++    }
++
++    if (price >= targetPrice) {
++      return 'take-profit';
++    }
++
++    return null;
++  }
++
++  recordTrade({ side, qty, price, pnl = 0, reason, tick }) {
++    this.trades.push({ side, qty, price, pnl, reason, tick });
++  }
++
++  printSummary(finalAccount) {
++    console.log('Summary');
++    console.log(`Trades executed: ${this.trades.length}`);
++    console.log(`Round trips: ${Math.floor(this.trades.filter((trade) => trade.side === 'sell').length)}`);
++    console.log(`Final equity: ${toDollars(finalAccount.equity)}`);
++    console.log(`Realized PnL: ${toDollars(finalAccount.realizedPnL)}`);
++
++    if (this.trades.length > 0) {
++      console.log('Trade log:');
++      for (const trade of this.trades) {
++        console.log(`- tick=${trade.tick} side=${trade.side} qty=${trade.qty} price=${trade.price.toFixed(2)} reason=${trade.reason} pnl=${toDollars(trade.pnl)}`);
++      }
++    }
++  }
++
++  async run() {
++    console.log(`Mode: ${this.config.mode}`);
++    console.log(`Broker: ${this.config.brokerMode}`);
++    console.log(`Symbol: ${this.config.symbol}`);
++    console.log(`Starting equity: ${toDollars(this.config.startingEquity)}`);
++
++    const maxTicks = this.sourcePrices.length;
++
++    for (let tick = 0; tick < maxTicks; tick += 1) {
++      const price = await this.broker.getNextPrice();
++      this.prices.push(price);
++      const account = await this.broker.getAccount(price);
++      const dailyLossLimit = this.getMaxDailyLoss(this.config.startingEquity);
++
++      console.log(`Tick ${tick + 1}: price=${price.toFixed(2)} equity=${account.equity.toFixed(2)} cash=${account.cash.toFixed(2)} position=${account.positionQty}`);
++
++      if (-account.realizedPnL >= dailyLossLimit) {
++        console.log(`Daily loss cap reached at ${toDollars(-account.realizedPnL)}. Stopping bot.`);
++        break;
++      }
++
++      const exitReason = this.shouldExitPosition(account, price);
++      if (exitReason) {
++        const result = await this.broker.sell({ qty: account.positionQty, price });
++        this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: exitReason, tick: tick + 1 });
++        console.log(`Exit ${exitReason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
++        continue;
++      }
++
++      const signal = getSignal(this.prices, this.config.shortWindow, this.config.longWindow);
++      if (signal.action === 'buy' && account.positionQty === 0 && this.tradeCount < this.config.maxTradesPerDay) {
++        const qty = this.getPositionSize({ equity: account.equity, price });
++        if (qty > 0) {
++          await this.broker.buy({ qty, price });
++          this.tradeCount += 1;
++          this.recordTrade({ side: 'buy', qty, price, reason: signal.reason, tick: tick + 1 });
++          console.log(`Entry ${signal.reason}: bought ${qty} at ${price.toFixed(2)}`);
++        }
++      } else if (signal.action === 'sell' && account.positionQty > 0) {
++        const result = await this.broker.sell({ qty: account.positionQty, price });
++        this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: signal.reason, tick: tick + 1 });
++        console.log(`Exit ${signal.reason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
++      }
++
++      if (this.config.mode === 'live' && this.config.brokerMode !== 'sim') {
++        await sleep(this.config.pollIntervalMs);
++      }
++    }
++
++    const finalPrice = this.prices[this.prices.length - 1];
++    const finalAccount = await this.broker.getAccount(finalPrice);
++    this.printSummary(finalAccount);
++  }
++}
+diff --git a/src/lib/config.js b/src/lib/config.js
+new file mode 100644
+index 0000000..f3db01e
+--- /dev/null
++++ b/src/lib/config.js
+@@ -0,0 +1,37 @@
++function numberFromEnv(rawValue, fallback) {
++  const parsed = Number(rawValue);
++  return Number.isFinite(parsed) ? parsed : fallback;
++}
++
++function listOfNumbers(rawValue, fallback) {
++  if (!rawValue) {
++    return fallback;
++  }
++
++  const values = rawValue
++    .split(',')
++    .map((value) => Number(value.trim()))
++    .filter((value) => Number.isFinite(value));
++
++  return values.length > 0 ? values : fallback;
++}
++
++export function loadConfig(env, overrides = {}) {
++  return {
++    mode: overrides.mode || env.MODE || 'sim',
++    brokerMode: env.BROKER_MODE || 'sim',
++    symbol: env.BOT_SYMBOL || 'USO',
++    dataFile: env.DATA_FILE || './data/crude_oil_sample.csv',
++    startingEquity: numberFromEnv(env.STARTING_EQUITY, 1000),
++    riskPerTradePct: numberFromEnv(env.RISK_PER_TRADE_PCT, 0.01),
++    maxPositionPct: numberFromEnv(env.MAX_POSITION_PCT, 0.25),
++    stopLossPct: numberFromEnv(env.STOP_LOSS_PCT, 0.025),
++    takeProfitPct: numberFromEnv(env.TAKE_PROFIT_PCT, 0.05),
++    maxDailyLossPct: numberFromEnv(env.MAX_DAILY_LOSS_PCT, 0.03),
++    maxTradesPerDay: Math.max(1, Math.floor(numberFromEnv(env.MAX_TRADES_PER_DAY, 3))),
++    shortWindow: Math.max(2, Math.floor(numberFromEnv(env.SHORT_WINDOW, 3))),
++    longWindow: Math.max(3, Math.floor(numberFromEnv(env.LONG_WINDOW, 8))),
++    pollIntervalMs: Math.max(250, Math.floor(numberFromEnv(env.POLL_INTERVAL_MS, 5000))),
++    simulatedPrices: listOfNumbers(env.SIMULATED_PRICES, [67.8, 67.45, 67.1, 66.95, 66.7, 66.55, 66.88, 67.2, 67.62, 68.05, 68.48, 68.92, 69.3, 69.78, 70.22, 69.85, 69.1, 68.55, 68.02, 67.66, 67.2, 66.82, 66.35, 66.02, 66.28, 66.74, 67.15, 67.68, 68.12, 68.44, 68.9, 69.32, 69.88, 70.35, 70.62, 69.95, 69.22, 68.74, 68.11, 67.72]),
++  };
++}
+diff --git a/src/lib/csv.js b/src/lib/csv.js
+new file mode 100644
+index 0000000..81070ca
+--- /dev/null
++++ b/src/lib/csv.js
+@@ -0,0 +1,28 @@
++import { readFile } from 'node:fs/promises';
++
++export async function loadClosePricesFromCsv(path) {
++  const raw = await readFile(path, 'utf8');
++  const lines = raw
++    .split(/\r?\n/)
++    .map((line) => line.trim())
++    .filter(Boolean);
++
++  if (lines.length < 2) {
++    throw new Error(`CSV file ${path} does not contain enough rows`);
++  }
++
++  const header = lines[0].split(',').map((value) => value.trim().toLowerCase());
++  const closeIndex = header.indexOf('close');
++  if (closeIndex === -1) {
++    throw new Error(`CSV file ${path} must contain a close column`);
++  }
++
++  return lines.slice(1).map((line) => {
++    const fields = line.split(',');
++    const close = Number(fields[closeIndex]);
++    if (!Number.isFinite(close)) {
++      throw new Error(`Invalid close value in ${path}: ${line}`);
++    }
++    return close;
++  });
++}
+diff --git a/src/lib/robinhoodBroker.js b/src/lib/robinhoodBroker.js
+new file mode 100644
+index 0000000..ac7a060
+--- /dev/null
++++ b/src/lib/robinhoodBroker.js
+@@ -0,0 +1,21 @@
++export class RobinhoodBroker {
++  constructor({ symbol }) {
++    this.symbol = symbol;
++  }
++
++  async getNextPrice() {
++    throw new Error('RobinhoodBroker is a placeholder. Wire authenticated market data before live use.');
++  }
++
++  async getAccount() {
++    throw new Error('RobinhoodBroker is a placeholder. Wire authenticated account access before live use.');
++  }
++
++  async buy() {
++    throw new Error('RobinhoodBroker is disabled by design. Keep using simulation/backtests until the adapter is implemented and audited.');
++  }
++
++  async sell() {
++    throw new Error('RobinhoodBroker is disabled by design. Keep using simulation/backtests until the adapter is implemented and audited.');
++  }
++}
+diff --git a/src/lib/simBroker.js b/src/lib/simBroker.js
+new file mode 100644
+index 0000000..f91cff2
+--- /dev/null
++++ b/src/lib/simBroker.js
+@@ -0,0 +1,60 @@
++export class SimBroker {
++  constructor({ symbol, startingEquity, simulatedPrices }) {
++    this.symbol = symbol;
++    this.cash = startingEquity;
++    this.positionQty = 0;
++    this.avgEntryPrice = 0;
++    this.priceFeed = simulatedPrices;
++    this.pointer = 0;
++    this.realizedPnL = 0;
++  }
++
++  async getNextPrice() {
++    const price = this.priceFeed[this.pointer % this.priceFeed.length];
++    this.pointer += 1;
++    return price;
++  }
++
++  async getAccount(price) {
++    return {
++      cash: this.cash,
++      equity: this.cash + this.positionQty * price,
++      positionQty: this.positionQty,
++      avgEntryPrice: this.avgEntryPrice,
++      realizedPnL: this.realizedPnL,
++    };
++  }
++
++  async buy({ qty, price }) {
++    const cost = qty * price;
++    if (cost > this.cash) {
++      throw new Error('Insufficient cash for simulated buy');
++    }
++
++    const newQty = this.positionQty + qty;
++    const weightedCost = this.avgEntryPrice * this.positionQty + cost;
++    this.cash -= cost;
++    this.positionQty = newQty;
++    this.avgEntryPrice = weightedCost / newQty;
++
++    return { side: 'buy', qty, price };
++  }
++
++  async sell({ qty, price }) {
++    if (qty > this.positionQty) {
++      throw new Error('Insufficient shares for simulated sell');
++    }
++
++    const proceeds = qty * price;
++    const pnl = (price - this.avgEntryPrice) * qty;
++    this.cash += proceeds;
++    this.positionQty -= qty;
++    this.realizedPnL += pnl;
++
++    if (this.positionQty === 0) {
++      this.avgEntryPrice = 0;
++    }
++
++    return { side: 'sell', qty, price, pnl };
++  }
++}
+diff --git a/src/lib/strategy.js b/src/lib/strategy.js
+new file mode 100644
+index 0000000..160d9a3
+--- /dev/null
++++ b/src/lib/strategy.js
+@@ -0,0 +1,25 @@
++function average(values) {
++  return values.reduce((sum, value) => sum + value, 0) / values.length;
++}
++
++export function getSignal(prices, shortWindow, longWindow) {
++  if (prices.length < longWindow + 1) {
++    return { action: 'hold', reason: 'waiting-for-history' };
++  }
++
++  const previousPrices = prices.slice(0, -1);
++  const currentShort = average(prices.slice(-shortWindow));
++  const currentLong = average(prices.slice(-longWindow));
++  const previousShort = average(previousPrices.slice(-shortWindow));
++  const previousLong = average(previousPrices.slice(-longWindow));
++
++  if (previousShort <= previousLong && currentShort > currentLong) {
++    return { action: 'buy', reason: 'bullish-crossover', shortAverage: currentShort, longAverage: currentLong };
++  }
++
++  if (previousShort >= previousLong && currentShort < currentLong) {
++    return { action: 'sell', reason: 'bearish-crossover', shortAverage: currentShort, longAverage: currentLong };
++  }
++
++  return { action: 'hold', reason: 'no-crossover', shortAverage: currentShort, longAverage: currentLong };
++}
+-- 
+2.43.0
+

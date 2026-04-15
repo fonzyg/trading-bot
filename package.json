@@ -1,13 +1,14 @@
 {
   "name": "robinhood-bot-scaffold",
-  "version": "0.2.0",
-  "description": "Dry-run trading bot scaffold with backtesting and risk controls.",
+  "version": "0.3.0",
+  "description": "Dry-run trading bot scaffold with backtesting, paper trading, and risk controls.",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js sim",
     "backtest": "node src/index.js backtest",
-    "check": "node --check src/index.js && node --check src/lib/bot.js && node --check src/lib/config.js && node --check src/lib/strategy.js && node --check src/lib/simBroker.js && node --check src/lib/csv.js && node --check src/lib/robinhoodBroker.js"
+    "paper": "node src/index.js paper",
+    "check": "node --check src/index.js && node --check src/lib/bot.js && node --check src/lib/config.js && node --check src/lib/strategy.js && node --check src/lib/simBroker.js && node --check src/lib/csv.js && node --check src/lib/robinhoodBroker.js && node --check src/lib/paperBroker.js && node --check src/lib/livePriceFeed.js"
   },
   "engines": {
     "node": ">=20"

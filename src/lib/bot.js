@@ -68,52 +68,74 @@ export class TradingBot {
     }
   }
 
+  async runTick(tick) {
+    let price;
+    try {
+      price = await this.broker.getNextPrice();
+    } catch (err) {
+      console.log(`Tick ${tick}: price fetch failed: ${err.message}`);
+      return { continue: true };
+    }
+
+    this.prices.push(price);
+    const account = await this.broker.getAccount(price);
+    const dailyLossLimit = this.getMaxDailyLoss(this.config.startingEquity);
+    const time = new Date().toISOString();
+
+    console.log(`[${time}] Tick ${tick}: price=${price.toFixed(2)} equity=${account.equity.toFixed(2)} cash=${account.cash.toFixed(2)} position=${account.positionQty}`);
+
+    if (-account.realizedPnL >= dailyLossLimit) {
+      console.log(`Daily loss cap reached at ${toDollars(-account.realizedPnL)}. Stopping bot.`);
+      return { continue: false };
+    }
+
+    const exitReason = this.shouldExitPosition(account, price);
+    if (exitReason) {
+      const result = await this.broker.sell({ qty: account.positionQty, price });
+      this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: exitReason, tick });
+      console.log(`Exit ${exitReason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
+      return { continue: true };
+    }
+
+    const signal = getSignal(this.prices, this.config.shortWindow, this.config.longWindow);
+    if (signal.action === 'buy' && account.positionQty === 0 && this.tradeCount < this.config.maxTradesPerDay) {
+      const qty = this.getPositionSize({ equity: account.equity, price });
+      if (qty > 0) {
+        await this.broker.buy({ qty, price });
+        this.tradeCount += 1;
+        this.recordTrade({ side: 'buy', qty, price, reason: signal.reason, tick });
+        console.log(`Entry ${signal.reason}: bought ${qty} at ${price.toFixed(2)}`);
+      }
+    } else if (signal.action === 'sell' && account.positionQty > 0) {
+      const result = await this.broker.sell({ qty: account.positionQty, price });
+      this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: signal.reason, tick });
+      console.log(`Exit ${signal.reason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
+    }
+
+    return { continue: true };
+  }
+
   async run() {
     console.log(`Mode: ${this.config.mode}`);
     console.log(`Broker: ${this.config.brokerMode}`);
     console.log(`Symbol: ${this.config.symbol}`);
     console.log(`Starting equity: ${toDollars(this.config.startingEquity)}`);
 
-    const maxTicks = this.sourcePrices.length;
-
-    for (let tick = 0; tick < maxTicks; tick += 1) {
-      const price = await this.broker.getNextPrice();
-      this.prices.push(price);
-      const account = await this.broker.getAccount(price);
-      const dailyLossLimit = this.getMaxDailyLoss(this.config.startingEquity);
-
-      console.log(`Tick ${tick + 1}: price=${price.toFixed(2)} equity=${account.equity.toFixed(2)} cash=${account.cash.toFixed(2)} position=${account.positionQty}`);
-
-      if (-account.realizedPnL >= dailyLossLimit) {
-        console.log(`Daily loss cap reached at ${toDollars(-account.realizedPnL)}. Stopping bot.`);
-        break;
-      }
-
-      const exitReason = this.shouldExitPosition(account, price);
-      if (exitReason) {
-        const result = await this.broker.sell({ qty: account.positionQty, price });
-        this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: exitReason, tick: tick + 1 });
-        console.log(`Exit ${exitReason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
-        continue;
-      }
-
-      const signal = getSignal(this.prices, this.config.shortWindow, this.config.longWindow);
-      if (signal.action === 'buy' && account.positionQty === 0 && this.tradeCount < this.config.maxTradesPerDay) {
-        const qty = this.getPositionSize({ equity: account.equity, price });
-        if (qty > 0) {
-          await this.broker.buy({ qty, price });
-          this.tradeCount += 1;
-          this.recordTrade({ side: 'buy', qty, price, reason: signal.reason, tick: tick + 1 });
-          console.log(`Entry ${signal.reason}: bought ${qty} at ${price.toFixed(2)}`);
-        }
-      } else if (signal.action === 'sell' && account.positionQty > 0) {
-        const result = await this.broker.sell({ qty: account.positionQty, price });
-        this.recordTrade({ side: 'sell', qty: result.qty, price, pnl: result.pnl, reason: signal.reason, tick: tick + 1 });
-        console.log(`Exit ${signal.reason}: sold ${result.qty} at ${price.toFixed(2)} pnl=${toDollars(result.pnl)}`);
-      }
-
-      if (this.config.mode === 'live' && this.config.brokerMode !== 'sim') {
+    if (this.config.mode === 'paper') {
+      console.log(`Poll interval: ${this.config.pollIntervalMs / 1000}s`);
+      console.log('Paper trading with live prices. Press Ctrl+C to stop.\n');
+      let tick = 1;
+      while (true) {
+        const result = await this.runTick(tick);
+        if (!result.continue) break;
+        tick += 1;
         await sleep(this.config.pollIntervalMs);
+      }
+    } else {
+      const maxTicks = this.sourcePrices.length;
+      for (let tick = 0; tick < maxTicks; tick += 1) {
+        const result = await this.runTick(tick + 1);
+        if (!result.continue) break;
       }
     }
 

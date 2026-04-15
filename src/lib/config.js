@@ -21,6 +21,7 @@ export function loadConfig(env, overrides = {}) {
     mode: overrides.mode || env.MODE || 'sim',
     brokerMode: env.BROKER_MODE || 'sim',
     symbol: env.BOT_SYMBOL || 'USO',
+    apiKey: env.ALPHA_VANTAGE_API_KEY || '',
     dataFile: env.DATA_FILE || './data/crude_oil_sample.csv',
     startingEquity: numberFromEnv(env.STARTING_EQUITY, 1000),
     riskPerTradePct: numberFromEnv(env.RISK_PER_TRADE_PCT, 0.01),
