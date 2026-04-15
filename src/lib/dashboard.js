@@ -38,8 +38,20 @@ export class Dashboard {
       res.end('Not found');
     });
 
-    server.listen(this.port, () => {
-      console.log(`Dashboard running at http://localhost:${this.port}`);
+    await new Promise((resolvePromise, reject) => {
+      server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          this.port += 1;
+          console.log(`Port in use, retrying on port ${this.port}...`);
+          server.listen(this.port);
+        } else {
+          reject(err);
+        }
+      });
+      server.listen(this.port, () => {
+        console.log(`Dashboard running at http://localhost:${this.port}`);
+        resolvePromise();
+      });
     });
   }
 }

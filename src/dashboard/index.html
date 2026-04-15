@@ -3,97 +3,187 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trading Bot Dashboard</title>
+<title>My Trading Bot</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
-  h1 { color: #58a6ff; margin-bottom: 20px; font-size: 24px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-  .card .label { font-size: 12px; color: #8b949e; text-transform: uppercase; margin-bottom: 4px; }
-  .card .value { font-size: 28px; font-weight: 600; }
-  .positive { color: #3fb950; }
-  .negative { color: #f85149; }
-  .neutral { color: #58a6ff; }
-  .section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 24px; }
-  .section h2 { font-size: 16px; color: #58a6ff; margin-bottom: 12px; }
-  canvas { width: 100%; height: 250px; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th { text-align: left; padding: 8px; border-bottom: 1px solid #30363d; color: #8b949e; font-weight: 500; }
-  td { padding: 8px; border-bottom: 1px solid #21262d; }
-  .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-  .status-dot.active { background: #3fb950; }
-  .status-dot.stopped { background: #f85149; }
-  .updated { font-size: 12px; color: #8b949e; margin-top: 8px; }
-  .buy-tag { background: #1f6feb33; color: #58a6ff; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-  .sell-tag { background: #f8514933; color: #f85149; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; max-width: 900px; margin: 0 auto; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 8px; }
+  .topbar h1 { font-size: 20px; color: #c9d1d9; }
+  .topbar h1 span { color: #58a6ff; }
+  .topbar .meta { font-size: 12px; color: #8b949e; text-align: right; }
+  .refresh-bar { height: 3px; background: #21262d; border-radius: 2px; margin-top: 4px; overflow: hidden; width: 120px; }
+  .refresh-fill { height: 100%; background: #58a6ff; transition: width 1s linear; }
+
+  /* Status badge */
+  .badge { display: inline-flex; align-items: center; gap: 6px; background: #161b22; border: 1px solid #30363d; border-radius: 20px; padding: 4px 12px; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3fb950; animation: pulse 2s infinite; }
+  .dot.off { background: #f85149; animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Big number cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; }
+  .card .emoji { font-size: 22px; margin-bottom: 6px; }
+  .card .num { font-size: 28px; font-weight: 800; line-height: 1; }
+  .card .lbl { font-size: 13px; color: #8b949e; margin-top: 5px; }
+  .card .hint { font-size: 11px; color: #6e7681; margin-top: 3px; }
+  .card.big { border-color: #58a6ff44; }
+
+  .green { color: #3fb950; }
+  .red { color: #f85149; }
+  .blue { color: #58a6ff; }
+  .gray { color: #8b949e; }
+
+  /* Holding banner */
+  .holding { display: none; background: #0d2218; border: 1px solid #3fb95055; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .holding.show { display: block; }
+  .holding .htitle { font-size: 13px; color: #3fb950; font-weight: 600; margin-bottom: 12px; }
+  .holding .hrow { display: flex; flex-wrap: wrap; gap: 20px; }
+  .holding .hi .v { font-size: 20px; font-weight: 700; }
+  .holding .hi .l { font-size: 11px; color: #8b949e; margin-top: 2px; }
+
+  /* Score section */
+  .score { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .score h2 { font-size: 14px; color: #8b949e; margin-bottom: 14px; }
+  .score-row { display: flex; flex-wrap: wrap; gap: 0; }
+  .score-item { flex: 1; min-width: 80px; text-align: center; padding: 8px; border-right: 1px solid #21262d; }
+  .score-item:last-child { border-right: none; }
+  .score-item .sn { font-size: 24px; font-weight: 700; }
+  .score-item .sl { font-size: 11px; color: #8b949e; margin-top: 3px; }
+
+  /* Chart */
+  .chartbox { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+  .chartbox h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+  canvas { width: 100%; height: 200px; display: block; }
+
+  /* Trades */
+  .tradebox { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; }
+  .tradebox h2 { font-size: 14px; color: #8b949e; margin-bottom: 12px; }
+  .trade-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #21262d; flex-wrap: wrap; }
+  .trade-row:last-child { border-bottom: none; }
+  .trade-side { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+  .trade-side.buy { background: #1f6feb33; color: #58a6ff; }
+  .trade-side.sell { background: #f8514933; color: #f85149; }
+  .trade-info { flex: 1; font-size: 13px; }
+  .trade-info .main { font-weight: 600; }
+  .trade-info .sub { font-size: 11px; color: #8b949e; margin-top: 2px; }
+  .trade-pnl { font-size: 16px; font-weight: 700; text-align: right; }
+  .trade-total { font-size: 11px; color: #8b949e; text-align: right; }
+  .empty { text-align: center; color: #8b949e; padding: 24px; font-size: 14px; }
 </style>
 </head>
 <body>
-<h1>Trading Bot Dashboard</h1>
 
-<div class="grid">
-  <div class="card">
-    <div class="label">Status</div>
-    <div class="value" id="status"><span class="status-dot active"></span>Loading</div>
+<div class="topbar">
+  <div>
+    <h1>&#129302; My Bot is trading <span id="sym">--</span></h1>
+    <div style="margin-top:6px"><span class="badge"><span class="dot" id="dot"></span><span id="status">Starting...</span></span></div>
   </div>
-  <div class="card">
-    <div class="label">Symbol</div>
-    <div class="value neutral" id="symbol">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Current Price</div>
-    <div class="value" id="price">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Equity</div>
-    <div class="value" id="equity">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Cash</div>
-    <div class="value" id="cash">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Position</div>
-    <div class="value neutral" id="position">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Realized PnL</div>
-    <div class="value" id="pnl">--</div>
-  </div>
-  <div class="card">
-    <div class="label">Win Rate</div>
-    <div class="value" id="winrate">--</div>
+  <div class="meta">
+    <div id="updated">--</div>
+    <div>Next check in <span id="countdown">60</span>s</div>
+    <div class="refresh-bar"><div class="refresh-fill" id="refill" style="width:100%"></div></div>
   </div>
 </div>
 
-<div class="section">
-  <h2>Equity Curve</h2>
+<!-- Holding banner — only shows when bot owns shares -->
+<div class="holding" id="holding">
+  <div class="htitle">&#128994; Bot currently owns shares</div>
+  <div class="hrow">
+    <div class="hi"><div class="v blue" id="h-shares">--</div><div class="l">Shares held</div></div>
+    <div class="hi"><div class="v blue" id="h-entry">--</div><div class="l">Bought at</div></div>
+    <div class="hi"><div class="v blue" id="h-price">--</div><div class="l">Now worth</div></div>
+    <div class="hi"><div class="v" id="h-open">--</div><div class="l">If sold right now</div></div>
+    <div class="hi"><div class="v" id="h-val">--</div><div class="l">Total value of shares</div></div>
+  </div>
+</div>
+
+<!-- Main cards -->
+<div class="cards">
+  <div class="card big">
+    <div class="emoji">&#128181;</div>
+    <div class="num" id="totalprofit">--</div>
+    <div class="lbl">Total profit so far</div>
+    <div class="hint" id="totalprofit-hint">includes open trades</div>
+  </div>
+  <div class="card">
+    <div class="emoji">&#9989;</div>
+    <div class="num" id="locked">--</div>
+    <div class="lbl">Profit locked in</div>
+    <div class="hint">from completed trades</div>
+  </div>
+  <div class="card">
+    <div class="emoji">&#128176;</div>
+    <div class="num blue" id="balance">--</div>
+    <div class="lbl">Total account value</div>
+    <div class="hint">cash + shares</div>
+  </div>
+  <div class="card">
+    <div class="emoji">&#128184;</div>
+    <div class="num gray" id="cash">--</div>
+    <div class="lbl">Cash sitting idle</div>
+    <div class="hint">not in any trade</div>
+  </div>
+  <div class="card">
+    <div class="emoji">&#128200;</div>
+    <div class="num blue" id="price">--</div>
+    <div class="lbl">Stock price now</div>
+    <div class="hint" id="price-hint">&nbsp;</div>
+  </div>
+</div>
+
+<!-- Scoreboard -->
+<div class="score">
+  <h2>&#127942; Scoreboard</h2>
+  <div class="score-row">
+    <div class="score-item"><div class="sn blue" id="s-trades">0</div><div class="sl">Trades made</div></div>
+    <div class="score-item"><div class="sn green" id="s-wins">0</div><div class="sl">&#128994; Wins</div></div>
+    <div class="score-item"><div class="sn red" id="s-losses">0</div><div class="sl">&#128308; Losses</div></div>
+    <div class="score-item"><div class="sn" id="s-rate">--</div><div class="sl">Win rate</div></div>
+    <div class="score-item"><div class="sn green" id="s-avgwin">--</div><div class="sl">Avg win</div></div>
+    <div class="score-item"><div class="sn red" id="s-avgloss">--</div><div class="sl">Avg loss</div></div>
+  </div>
+</div>
+
+<!-- Chart -->
+<div class="chartbox">
+  <h2>&#128201; Account value over time</h2>
   <canvas id="chart"></canvas>
 </div>
 
-<div class="section">
-  <h2>Trade Log</h2>
-  <table>
-    <thead>
-      <tr><th>Time</th><th>Side</th><th>Qty</th><th>Price</th><th>Reason</th><th>PnL</th></tr>
-    </thead>
-    <tbody id="trades"></tbody>
-  </table>
+<!-- Mom explanation -->
+<div style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-bottom:20px;">
+  <div style="font-size:13px;color:#8b949e;margin-bottom:8px;">&#128226; Para mamá</div>
+  <p style="font-size:14px;line-height:1.7;color:#c9d1d9;">
+    Mami, esto es un programa que hice que compra y vende acciones de bolsa <strong>con dinero falso</strong> para practicar. 
+    Él solito decide cuándo comprar y cuándo vender mirando si el precio sube o baja. 
+    Esta pantalla me muestra cuánto dinero habría ganado o perdido si fuera dinero real. 
+    Es como un videojuego de inversiones — nadie pierde nada todavía. &#128519;
+  </p>
 </div>
 
-<div class="updated" id="updated"></div>
+<!-- Trade history -->
+<div class="tradebox">
+  <h2>&#128203; Trade history (newest first)</h2>
+  <div id="trades"><div class="empty">No trades yet — bot is watching the market...</div></div>
+</div>
 
 <script>
 function $(id) { return document.getElementById(id); }
+function gc(v) { return v > 0 ? 'green' : v < 0 ? 'red' : 'gray'; }
+function fmt(v) { return (v >= 0 ? '+' : '-') + '$' + Math.abs(v).toFixed(2); }
+function fmtpct(v) { return (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
 
-function pnlClass(val) {
-  if (val > 0) return 'positive';
-  if (val < 0) return 'negative';
-  return '';
+let lastPrice = null, countdown = 60, timer = null;
+
+function tick() {
+  countdown = Math.max(0, countdown - 1);
+  $('countdown').textContent = countdown;
+  $('refill').style.width = (countdown / 60 * 100) + '%';
 }
 
-function drawChart(ticks) {
+function drawChart(ticks, trades) {
   const canvas = $('chart');
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
@@ -101,105 +191,169 @@ function drawChart(ticks) {
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
-  const w = rect.width;
-  const h = rect.height;
+  const w = rect.width, h = rect.height, pad = 6;
 
   if (!ticks || ticks.length < 2) {
     ctx.fillStyle = '#8b949e';
     ctx.font = '14px sans-serif';
-    ctx.fillText('Waiting for data...', w / 2 - 60, h / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('Waiting for more data...', w / 2, h / 2);
     return;
   }
 
-  const equities = ticks.map(t => t.equity);
-  const min = Math.min(...equities) * 0.999;
-  const max = Math.max(...equities) * 1.001;
-  const range = max - min || 1;
+  const eq = ticks.map(t => t.equity);
+  const lo = Math.min(...eq) * 0.9985, hi = Math.max(...eq) * 1.0015, rng = hi - lo || 1;
+  const x = i => pad + (i / (ticks.length - 1)) * (w - pad * 2);
+  const y = v => h - pad - ((v - lo) / rng) * (h - pad * 2);
 
   ctx.clearRect(0, 0, w, h);
 
-  // Grid
-  ctx.strokeStyle = '#21262d';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 5; i++) {
-    const y = (h / 4) * i;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  // grid
+  ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const yy = pad + (i / 3) * (h - pad * 2);
+    ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke();
   }
 
-  // Line
-  ctx.strokeStyle = '#58a6ff';
-  ctx.lineWidth = 2;
+  // baseline
+  ctx.strokeStyle = '#30363d'; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(0, y(eq[0])); ctx.lineTo(w, y(eq[0])); ctx.stroke();
+  ctx.setLineDash([]);
+
+  const isUp = eq[eq.length-1] >= eq[0];
+
+  // fill
   ctx.beginPath();
-  for (let i = 0; i < equities.length; i++) {
-    const x = (i / (equities.length - 1)) * w;
-    const y = h - ((equities[i] - min) / range) * h;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
+  ctx.moveTo(x(0), y(eq[0]));
+  eq.forEach((v, i) => ctx.lineTo(x(i), y(v)));
+  ctx.lineTo(x(eq.length-1), h); ctx.lineTo(x(0), h); ctx.closePath();
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, isUp ? 'rgba(63,185,80,0.2)' : 'rgba(248,81,73,0.2)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fill();
+
+  // line
+  ctx.strokeStyle = isUp ? '#3fb950' : '#f85149'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  eq.forEach((v, i) => { if (i===0) ctx.moveTo(x(i),y(v)); else ctx.lineTo(x(i),y(v)); });
   ctx.stroke();
 
-  // Fill
-  const lastX = w;
-  const lastY = h - ((equities[equities.length - 1] - min) / range) * h;
-  ctx.lineTo(lastX, h);
-  ctx.lineTo(0, h);
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, 'rgba(88,166,255,0.15)');
-  grad.addColorStop(1, 'rgba(88,166,255,0)');
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  // Labels
-  ctx.fillStyle = '#8b949e';
-  ctx.font = '11px sans-serif';
-  ctx.fillText('$' + max.toFixed(2), 4, 14);
-  ctx.fillText('$' + min.toFixed(2), 4, h - 4);
+  // trade dots
+  (trades || []).forEach(t => {
+    const idx = ticks.findIndex(tk => tk.tick === t.tick);
+    if (idx < 0) return;
+    ctx.beginPath();
+    ctx.arc(x(idx), y(ticks[idx].equity), 5, 0, Math.PI*2);
+    ctx.fillStyle = t.side === 'buy' ? '#58a6ff' : '#f85149';
+    ctx.fill();
+    ctx.strokeStyle = '#0d1117'; ctx.lineWidth = 1.5; ctx.stroke();
+  });
 }
 
 async function refresh() {
   try {
-    const res = await fetch('/api/status');
-    const d = await res.json();
+    const d = await fetch('/api/status').then(r => r.json());
+    const price = d.lastPrice || 0;
+    const realized = parseFloat(d.totalPnL) || 0;
+    const unrealized = (d.position||0) > 0 && d.avgEntryPrice ? (price - d.avgEntryPrice) * d.position : 0;
+    const total = realized + unrealized;
 
-    $('status').innerHTML = `<span class="status-dot active"></span>${d.mode || 'paper'}`;
-    $('symbol').textContent = d.symbol || '--';
-    $('price').textContent = d.lastPrice ? '$' + d.lastPrice.toFixed(2) : '--';
-    $('equity').textContent = d.equity ? '$' + d.equity.toFixed(2) : '--';
-    $('equity').className = 'value ' + pnlClass(d.equity - 1000);
-    $('cash').textContent = d.cash ? '$' + d.cash.toFixed(2) : '--';
-    $('position').textContent = d.position || '0';
-    $('pnl').textContent = '$' + (d.totalPnL || '0.00');
-    $('pnl').className = 'value ' + pnlClass(parseFloat(d.totalPnL));
-    $('winrate').textContent = d.winRate || 'N/A';
-    $('updated').textContent = d.lastUpdate ? 'Last update: ' + new Date(d.lastUpdate).toLocaleString() : '';
+    $('sym').textContent = d.symbol || '--';
+    $('updated').textContent = d.lastUpdate ? 'Last checked ' + new Date(d.lastUpdate).toLocaleTimeString() : '--';
 
-    drawChart(d.ticks);
+    // status badge
+    $('status').textContent = (d.position||0) > 0 ? 'Holding shares' : 'Watching market';
+    $('dot').className = 'dot';
 
-    const tbody = $('trades');
-    tbody.innerHTML = '';
-    const trades = (d.trades || []).slice().reverse();
-    for (const t of trades) {
-      const tr = document.createElement('tr');
-      const tag = t.side === 'buy' ? 'buy-tag' : 'sell-tag';
-      tr.innerHTML = `
-        <td>${t.time ? new Date(t.time).toLocaleString() : 'tick ' + t.tick}</td>
-        <td><span class="${tag}">${t.side.toUpperCase()}</span></td>
-        <td>${t.qty}</td>
-        <td>$${t.price.toFixed(2)}</td>
-        <td>${t.reason}</td>
-        <td class="${pnlClass(t.pnl)}">$${(t.pnl || 0).toFixed(2)}</td>
-      `;
-      tbody.appendChild(tr);
+    // price
+    $('price').textContent = price ? '$' + price.toFixed(2) : '--';
+    if (lastPrice && price) {
+      const chg = ((price - lastPrice) / lastPrice) * 100;
+      $('price-hint').textContent = fmtpct(chg) + ' since last check';
+      $('price-hint').className = 'hint ' + gc(chg);
     }
-  } catch (err) {
-    $('status').innerHTML = '<span class="status-dot stopped"></span>Disconnected';
+    if (price) lastPrice = price;
+
+    // cards
+    $('totalprofit').textContent = total ? fmt(total) : '$0.00';
+    $('totalprofit').className = 'num ' + gc(total);
+    $('totalprofit-hint').textContent = (d.position||0) > 0 ? 'includes open trade' : 'all trades closed';
+
+    $('locked').textContent = realized ? fmt(realized) : '$0.00';
+    $('locked').className = 'num ' + gc(realized);
+
+    $('balance').textContent = d.equity ? '$' + d.equity.toFixed(2) : '--';
+    $('cash').textContent = d.cash ? '$' + d.cash.toFixed(2) : '--';
+
+    // holding banner
+    const hld = $('holding');
+    if ((d.position||0) > 0 && d.avgEntryPrice) {
+      hld.classList.add('show');
+      $('h-shares').textContent = d.position + ' shares';
+      $('h-entry').textContent = '$' + d.avgEntryPrice.toFixed(2);
+      $('h-price').textContent = '$' + price.toFixed(2);
+      $('h-open').textContent = fmt(unrealized);
+      $('h-open').className = 'v ' + gc(unrealized);
+      $('h-val').textContent = '$' + (d.position * price).toFixed(2);
+    } else {
+      hld.classList.remove('show');
+    }
+
+    // scoreboard
+    const sells = (d.trades||[]).filter(t => t.side==='sell');
+    const wins = sells.filter(t => t.pnl > 0);
+    const losses = sells.filter(t => t.pnl <= 0);
+    const avgWin = wins.length ? wins.reduce((s,t)=>s+t.pnl,0)/wins.length : null;
+    const avgLoss = losses.length ? losses.reduce((s,t)=>s+t.pnl,0)/losses.length : null;
+
+    $('s-trades').textContent = d.totalTrades || 0;
+    $('s-wins').textContent = wins.length;
+    $('s-losses').textContent = losses.length;
+    $('s-rate').textContent = sells.length ? Math.round(wins.length/sells.length*100) + '%' : '--';
+    $('s-rate').className = 'sn ' + (wins.length > losses.length ? 'green' : losses.length > wins.length ? 'red' : 'blue');
+    $('s-avgwin').textContent = avgWin !== null ? fmt(avgWin) : '--';
+    $('s-avgloss').textContent = avgLoss !== null ? fmt(avgLoss) : '--';
+
+    // chart
+    drawChart(d.ticks, d.trades);
+
+    // trade rows
+    const box = $('trades');
+    const allTrades = (d.trades||[]).slice();
+    if (allTrades.length === 0) {
+      box.innerHTML = '<div class="empty">No trades yet — bot is watching the market...</div>';
+    } else {
+      let running = 0;
+      const rows = allTrades.map(t => {
+        if (t.side==='sell') running += (t.pnl||0);
+        return { ...t, running };
+      });
+      box.innerHTML = rows.reverse().map(t => {
+        const isBuy = t.side === 'buy';
+        const label = isBuy ? '&#128722; Bought' : '&#128184; Sold';
+        const pnlLine = !isBuy ? `<div class="trade-pnl ${gc(t.pnl)}">${fmt(t.pnl)}</div><div class="trade-total gray">Total: ${fmt(t.running)}</div>` : `<div class="trade-pnl gray">--</div>`;
+        const why = t.reason === 'bullish-crossover' ? 'price trending up' : t.reason === 'bearish-crossover' ? 'price trending down' : t.reason === 'stop-loss' ? 'cut losses' : t.reason === 'take-profit' ? 'hit profit target' : t.reason;
+        return `<div class="trade-row">
+          <span class="trade-side ${t.side}">${label}</span>
+          <div class="trade-info">
+            <div class="main">${t.qty} shares @ $${t.price.toFixed(2)}</div>
+            <div class="sub">${t.time ? new Date(t.time).toLocaleTimeString() : ''} &middot; ${why}</div>
+          </div>
+          ${pnlLine}
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {
+    $('status').textContent = 'Offline';
+    $('dot').className = 'dot off';
   }
+  countdown = 60;
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
 }
 
 refresh();
-setInterval(refresh, 10000);
-window.addEventListener('resize', refresh);
+setInterval(refresh, 60000);
 </script>
 </body>
 </html>

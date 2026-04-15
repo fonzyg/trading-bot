@@ -95,7 +95,7 @@ export class TradingBot {
       this.logger.logTick({ tick, price, equity: account.equity, cash: account.cash, position: account.positionQty, time });
     }
     if (this.dashboard) {
-      this.dashboard.updateStatus({ lastPrice: price, equity: account.equity, cash: account.cash, position: account.positionQty });
+      this.dashboard.updateStatus({ lastPrice: price, equity: account.equity, cash: account.cash, position: account.positionQty, avgEntryPrice: account.avgEntryPrice, realizedPnL: account.realizedPnL });
     }
 
     if (-account.realizedPnL >= dailyLossLimit) {
