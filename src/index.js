@@ -1,3 +1,4 @@
+import { loadEnvFile } from './lib/env.js';
 import { loadConfig } from './lib/config.js';
 import { TradingBot } from './lib/bot.js';
 import { SimBroker } from './lib/simBroker.js';
@@ -26,6 +27,7 @@ function createBroker(config, prices) {
 }
 
 async function main() {
+  await loadEnvFile();
   const mode = process.argv[2] || 'sim';
   const config = loadConfig(process.env, { mode });
 
