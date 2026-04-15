@@ -9,13 +9,15 @@ function toDollars(value) {
 }
 
 export class TradingBot {
-  constructor({ broker, config, prices = [] }) {
+  constructor({ broker, config, prices = [], logger = null, dashboard = null }) {
     this.broker = broker;
     this.config = config;
     this.sourcePrices = prices;
     this.prices = [];
     this.tradeCount = 0;
     this.trades = [];
+    this.logger = logger;
+    this.dashboard = dashboard;
   }
 
   getMaxDailyLoss(startingEquity) {
@@ -50,7 +52,12 @@ export class TradingBot {
   }
 
   recordTrade({ side, qty, price, pnl = 0, reason, tick }) {
-    this.trades.push({ side, qty, price, pnl, reason, tick });
+    const time = new Date().toISOString();
+    this.trades.push({ side, qty, price, pnl, reason, tick, time });
+    if (this.logger) {
+      this.logger.logTrade({ side, qty, price, pnl, reason, tick, time });
+      this.logger.save().catch(() => {});
+    }
   }
 
   printSummary(finalAccount) {
@@ -83,6 +90,13 @@ export class TradingBot {
     const time = new Date().toISOString();
 
     console.log(`[${time}] Tick ${tick}: price=${price.toFixed(2)} equity=${account.equity.toFixed(2)} cash=${account.cash.toFixed(2)} position=${account.positionQty}`);
+
+    if (this.logger) {
+      this.logger.logTick({ tick, price, equity: account.equity, cash: account.cash, position: account.positionQty, time });
+    }
+    if (this.dashboard) {
+      this.dashboard.updateStatus({ lastPrice: price, equity: account.equity, cash: account.cash, position: account.positionQty });
+    }
 
     if (-account.realizedPnL >= dailyLossLimit) {
       console.log(`Daily loss cap reached at ${toDollars(-account.realizedPnL)}. Stopping bot.`);

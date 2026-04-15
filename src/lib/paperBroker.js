@@ -1,9 +1,9 @@
-import { LivePriceFeed } from './livePriceFeed.js';
+import { YahooPriceFeed } from './yahooPriceFeed.js';
 import { SimBroker } from './simBroker.js';
 
 export class PaperBroker {
-  constructor({ symbol, startingEquity, apiKey, pollIntervalSeconds = 60 }) {
-    this.priceFeed = new LivePriceFeed({ symbol, apiKey });
+  constructor({ symbol, startingEquity }) {
+    this.priceFeed = new YahooPriceFeed({ symbol });
     this.sim = new SimBroker({
       symbol,
       startingEquity,
